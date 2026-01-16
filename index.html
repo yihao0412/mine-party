@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>踩地雷派對遊戲（可重新設定）</title>
+<title>踩地雷派對遊戲（隨機地雷+處罰格+說明）</title>
 
 <style>
 body {
@@ -26,21 +26,31 @@ button.cell {
   border: none;
   cursor: pointer;
 }
-.red { background: #ff4d4d; }
-.blue { background: #4da6ff; }
-.green { background: #4dff88; }
+.red { background: #ff4d4d; }    /* 地雷 */
+.blue { background: #4da6ff; }   /* 地雷上下左右 */
+.green { background: #4dff88; }  /* 安全 */
+.orange { background: #ffb84d; } /* 處罰格 */
 button:disabled { opacity: 0.9; cursor: not-allowed; }
-.panel { margin-top: 10px; }
+.panel { margin-top: 10px; text-align: center; }
 .hidden { display: none; }
 h2 { margin-top: 20px; color: #333; }
 #restartPanel { margin-top: 20px; }
+.colorLegend { margin-top: 15px; text-align: left; display: inline-block; font-size: 14px; }
+.colorBox {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 6px;
+  border-radius: 4px;
+}
 </style>
 </head>
 
 <body>
 
 <h2>🎉 踩地雷派對遊戲</h2>
-<p>主持人設定棋盤大小與地雷數量，開始遊戲後玩家只能看棋盤！</p>
+<p>主持人設定棋盤大小、地雷數量與處罰格數量，開始遊戲後玩家只能看棋盤！</p>
 
 <!-- 主持人設定區 -->
 <div id="setup" class="panel">
@@ -50,7 +60,18 @@ h2 { margin-top: 20px; color: #333; }
   地雷數量：
   <input type="number" id="mineCount" value="5" min="1" max="20"><br><br>
 
+  處罰格數量：
+  <input type="number" id="penaltyCount" value="3" min="0" max="10"><br><br>
+
   <button onclick="startGame()">🎬 開始遊戲</button>
+
+  <!-- 顏色說明 -->
+  <div class="colorLegend">
+    <p><span class="colorBox" style="background:#ff4d4d;"></span>🔴 踩到雷</p>
+    <p><span class="colorBox" style="background:#4da6ff;"></span>🔵 雷上下左右</p>
+    <p><span class="colorBox" style="background:#4dff88;"></span>🟢 安全</p>
+    <p><span class="colorBox" style="background:#ffb84d;"></span>🟠 處罰格</p>
+  </div>
 </div>
 
 <!-- 玩家遊戲區 -->
@@ -64,20 +85,33 @@ h2 { margin-top: 20px; color: #333; }
 <script>
 let size = 7;
 let mineSet = new Set();
+let penaltySet = new Set();
 let used = new Set();
 
 function startGame() {
   size = parseInt(document.getElementById("size").value);
   const mineCount = parseInt(document.getElementById("mineCount").value);
+  const penaltyCount = parseInt(document.getElementById("penaltyCount").value);
 
   used.clear();
   mineSet.clear();
+  penaltySet.clear();
 
   // 隨機生成地雷
   while (mineSet.size < mineCount) {
     const r = Math.floor(Math.random() * size);
     const c = Math.floor(Math.random() * size);
     mineSet.add(`${r},${c}`);
+  }
+
+  // 隨機生成處罰格（不能和地雷重疊）
+  while (penaltySet.size < penaltyCount) {
+    const r = Math.floor(Math.random() * size);
+    const c = Math.floor(Math.random() * size);
+    const key = `${r},${c}`;
+    if (!mineSet.has(key)) {
+      penaltySet.add(key);
+    }
   }
 
   document.getElementById("setup").classList.add("hidden");
@@ -110,14 +144,25 @@ function pick(i) {
   const key = `${r},${c}`;
   const btn = document.getElementsByClassName("cell")[i];
 
+  // 踩到地雷
   if (mineSet.has(key)) {
     btn.classList.add("red");
     btn.disabled = true;
     alert("🎉 你踩到地雷，獲勝！");
-    document.getElementById("restartPanel").classList.remove("hidden"); // 顯示回到設定按鈕
+    document.getElementById("restartPanel").classList.remove("hidden");
     return;
   }
 
+  // 踩到處罰格
+  if (penaltySet.has(key)) {
+    btn.classList.add("orange");
+    btn.disabled = true;
+    alert("⚠️ 你踩到處罰格！");
+    document.getElementById("restartPanel").classList.remove("hidden");
+    return;
+  }
+
+  // 安全格顏色判斷
   const adj = [
     `${r-1},${c}`, `${r+1},${c}`,
     `${r},${c-1}`, `${r},${c+1}`
