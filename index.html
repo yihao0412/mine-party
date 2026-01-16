@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>踩地雷派對遊戲</title>
+
+<style>
+  body {
+    font-family: Arial, "Microsoft JhengHei", sans-serif;
+    text-align: center;
+    background: #f5f5f5;
+  }
+
+  #board {
+    display: grid;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  button.cell {
+    width: 48px;
+    height: 48px;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .red { background: #ff4d4d; }
+  .blue { background: #4da6ff; }
+  .green { background: #4dff88; }
+
+  button:disabled {
+    opacity: 0.9;
+    cursor: not-allowed;
+  }
+
+  .panel {
+    margin-top: 10px;
+  }
+
+  .hidden {
+    display: none;
+  }
+</style>
+</head>
+
+<body>
+
+<h2>🎮 踩地雷派對遊戲</h2>
+
+<!-- 主持人設定區 -->
+<div id="setup" class="panel">
+  棋盤大小：
+  <input type="number" id="size" value="7" min="3" max="15"><br><br>
+
+  地雷位置（主持人用，玩家不會看到）<br>
+  <small>格式：row,col（例如 3,4）</small><br>
+  <textarea id="mines" rows="3" cols="25">3,3</textarea><br><br>
+
+  <button onclick="startGame()">🎬 開始遊戲</button>
+</div>
+
+<!-- 玩家遊戲區 -->
+<div id="game" class="hidden">
+  <div id="board"></div><br>
+  <button onclick="location.reload()">🔁 重新一局（主持人）</button>
+</div>
+
+<script>
+let size = 7;
+let mineSet = new Set();
+let used = new Set();
+
+function startGame() {
+  size = parseInt(document.getElementById("size").value);
+  used.clear();
+  mineSet.clear();
+
+  document.getElementById("mines").value
+    .split("\n")
+    .forEach(line => {
+      const [r, c] = line.split(",").map(Number);
+      if (!isNaN(r) && !isNaN(c)) {
+        mineSet.add(`${r-1},${c-1}`);
+      }
+    });
+
+  document.getElementById("setup").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+
+  buildBoard();
+}
+
+function buildBoard() {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  board.style.gridTemplateColumns = `repeat(${size}, 50px)`;
+
+  for (let i = 0; i < size * size; i++) {
+    const btn = document.createElement("button");
+    btn.className = "cell";
+    btn.textContent = i + 1;
+    btn.onclick = () => pick(i);
+    board.appendChild(btn);
+  }
+}
+
+function pick(i) {
+  if (used.has(i)) return;
+  used.add(i);
+
+  const r = Math.floor(i / size);
+  const c = i % size;
+  const key = `${r},${c}`;
+  const btn = document.getElementsByClassName("cell")[i];
+
+  if (mineSet.has(key)) {
+    btn.classList.add("red");
+    btn.disabled = true;
+    alert("🎉 你踩到地雷，獲勝！");
+    return;
+  }
+
+  const adj = [
+    `${r-1},${c}`, `${r+1},${c}`,
+    `${r},${c-1}`, `${r},${c+1}`
+  ];
+
+  if (adj.some(a => mineSet.has(a))) {
+    btn.classList.add("blue");
+  } else {
+    btn.classList.add("green");
+  }
+
+  btn.disabled = true;
+}
+</script>
+
+</body>
+</html>
