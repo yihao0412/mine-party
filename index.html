@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>踩地雷派對遊戲（隨機地雷）</title>
+<title>踩地雷派對遊戲（可重新設定）</title>
 
 <style>
 body {
@@ -33,12 +33,13 @@ button:disabled { opacity: 0.9; cursor: not-allowed; }
 .panel { margin-top: 10px; }
 .hidden { display: none; }
 h2 { margin-top: 20px; color: #333; }
+#restartPanel { margin-top: 20px; }
 </style>
 </head>
 
 <body>
 
-<h2>🎉 踩地雷派對遊戲（隨機地雷）</h2>
+<h2>🎉 踩地雷派對遊戲</h2>
 <p>主持人設定棋盤大小與地雷數量，開始遊戲後玩家只能看棋盤！</p>
 
 <!-- 主持人設定區 -->
@@ -55,6 +56,9 @@ h2 { margin-top: 20px; color: #333; }
 <!-- 玩家遊戲區 -->
 <div id="game" class="hidden">
   <div id="board"></div>
+  <div id="restartPanel" class="hidden">
+    <button onclick="backToSetup()">🔁 回到設定畫面</button>
+  </div>
 </div>
 
 <script>
@@ -78,6 +82,7 @@ function startGame() {
 
   document.getElementById("setup").classList.add("hidden");
   document.getElementById("game").classList.remove("hidden");
+  document.getElementById("restartPanel").classList.add("hidden");
 
   buildBoard();
 }
@@ -109,6 +114,7 @@ function pick(i) {
     btn.classList.add("red");
     btn.disabled = true;
     alert("🎉 你踩到地雷，獲勝！");
+    document.getElementById("restartPanel").classList.remove("hidden"); // 顯示回到設定按鈕
     return;
   }
 
@@ -124,6 +130,12 @@ function pick(i) {
   }
 
   btn.disabled = true;
+}
+
+// 回到設定畫面
+function backToSetup() {
+  document.getElementById("game").classList.add("hidden");
+  document.getElementById("setup").classList.remove("hidden");
 }
 </script>
 
