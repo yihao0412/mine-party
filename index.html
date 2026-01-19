@@ -2,136 +2,184 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>踩地雷派對遊戲（隨機地雷+處罰格+說明）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>踩地雷派對遊戲</title>
 
 <style>
 body {
-  font-family: Arial, "Microsoft JhengHei", sans-serif;
+  font-family: Arial, sans-serif;
   text-align: center;
-  background: #f0f8ff;
+  padding: 10px;
+  margin: 0;
 }
-#board {
+
+.hidden { display: none; }
+
+.grid {
   display: grid;
   gap: 6px;
   justify-content: center;
-  margin-top: 20px;
+  margin: 15px auto;
+  max-width: 100vw;
 }
-button.cell {
-  width: 48px;
-  height: 48px;
-  font-size: 14px;
-  font-weight: bold;
-  border-radius: 6px;
-  border: none;
+
+.cell {
+  border-radius: 8px;
+  border: 1px solid #ccc;
   cursor: pointer;
 }
-.red { background: #ff4d4d; }    /* 地雷 */
-.blue { background: #4da6ff; }   /* 地雷上下左右 */
-.green { background: #4dff88; }  /* 安全 */
-.orange { background: #ffb84d; } /* 處罰格 */
-button:disabled { opacity: 0.9; cursor: not-allowed; }
-.panel { margin-top: 10px; text-align: center; }
-.hidden { display: none; }
-h2 { margin-top: 20px; color: #333; }
-#restartPanel { margin-top: 20px; }
-.colorLegend { margin-top: 15px; text-align: left; display: inline-block; font-size: 14px; }
-.colorBox {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  vertical-align: middle;
-  margin-right: 6px;
-  border-radius: 4px;
+
+.red    { background: #e74c3c; }
+.blue   { background: #3498db; }
+.green  { background: #2ecc71; }
+.orange { background: #f39c12; }
+
+/* 投影模式文字 */
+body.projector #turn {
+  font-size: 36px;
+  font-weight: bold;
+  margin: 20px 0;
+}
+
+/* 中央訊息 */
+#message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.75);
+  color: white;
+  padding: 30px 40px;
+  border-radius: 16px;
+  font-size: 32px;
+  z-index: 999;
+  pointer-events: none;
 }
 </style>
 </head>
 
 <body>
 
-<h2>🎉 踩地雷派對遊戲</h2>
-<p>主持人設定棋盤大小、地雷數量與處罰格數量，開始遊戲後玩家只能看棋盤！</p>
+<!-- ===== 中央訊息 ===== -->
+<div id="message" class="hidden"></div>
 
-<!-- 主持人設定區 -->
-<div id="setup" class="panel">
-  棋盤大小：
-  <input type="number" id="size" value="7" min="3" max="15"><br><br>
+<!-- ===== 設定頁 ===== -->
+<div id="setup">
+  <h2>🎮 遊戲設定</h2>
 
-  地雷數量：
-  <input type="number" id="mineCount" value="5" min="1" max="20"><br><br>
+  <label>棋盤大小：
+    <input type="number" id="size" value="7" min="5" max="15">
+  </label><br><br>
 
-  處罰格數量：
-  <input type="number" id="penaltyCount" value="3" min="0" max="10"><br><br>
+  <label>地雷數量：
+    <input type="number" id="mineCount" value="1" min="1">
+  </label><br><br>
 
-  <button onclick="startGame()">🎬 開始遊戲</button>
+  <label>處罰格數量：
+    <input type="number" id="punishCount" value="3" min="0">
+  </label><br><br>
 
-  <!-- 顏色說明 -->
-  <div class="colorLegend">
-    <p><span class="colorBox" style="background:#ff4d4d;"></span>🔴 踩到雷</p>
-    <p><span class="colorBox" style="background:#4da6ff;"></span>🔵 雷上下左右</p>
-    <p><span class="colorBox" style="background:#4dff88;"></span>🟢 安全</p>
-    <p><span class="colorBox" style="background:#ffb84d;"></span>🟠 處罰格</p>
-  </div>
+  <label>
+    <input type="checkbox" id="projector">
+    投影模式（大螢幕）
+  </label>
+
+  <hr>
+
+  <h3>👥 參加者（最多 30 位）</h3>
+  <div id="players"></div>
+  <button onclick="addPlayer()">＋ 新增參加者</button>
+
+  <hr>
+
+  <h3>🎨 顏色說明</h3>
+  🔴 踩到雷（獲勝）<br>
+  🔵 雷的上下左右<br>
+  🟢 安全格<br>
+  🟠 處罰格
+
+  <br><br>
+  <button onclick="startGame()">▶ 開始遊戲</button>
 </div>
 
-<!-- 玩家遊戲區 -->
+<!-- ===== 遊戲頁 ===== -->
 <div id="game" class="hidden">
-  <div id="board"></div>
-  <div id="restartPanel" class="hidden">
-    <button onclick="backToSetup()">🔁 回到設定畫面</button>
-  </div>
+  <div id="turn"></div>
+  <div id="grid" class="grid"></div>
+  <button onclick="backToSetup()">⬅ 回到設定</button>
 </div>
 
 <script>
-let size = 7;
-let mineSet = new Set();
-let penaltySet = new Set();
-let used = new Set();
+let size, mineSet, punishSet, used;
+let players = [];
+let turnIndex = 0;
+
+// 預設 2 人
+addPlayer(); addPlayer();
+
+function addPlayer() {
+  if (document.querySelectorAll("#players input").length >= 30) return;
+  const input = document.createElement("input");
+  input.placeholder = "參加者名稱";
+  document.getElementById("players").appendChild(input);
+}
 
 function startGame() {
-  size = parseInt(document.getElementById("size").value);
-  const mineCount = parseInt(document.getElementById("mineCount").value);
-  const penaltyCount = parseInt(document.getElementById("penaltyCount").value);
+  size = +document.getElementById("size").value;
+  const mineCount = +document.getElementById("mineCount").value;
+  const punishCount = +document.getElementById("punishCount").value;
 
-  used.clear();
-  mineSet.clear();
-  penaltySet.clear();
+  players = [...document.querySelectorAll("#players input")]
+    .map(i => i.value.trim()).filter(v => v);
 
-  // 隨機生成地雷
-  while (mineSet.size < mineCount) {
-    const r = Math.floor(Math.random() * size);
-    const c = Math.floor(Math.random() * size);
-    mineSet.add(`${r},${c}`);
+  if (players.length === 0) {
+    alert("至少要一位參加者");
+    return;
   }
 
-  // 隨機生成處罰格（不能和地雷重疊）
-  while (penaltySet.size < penaltyCount) {
-    const r = Math.floor(Math.random() * size);
-    const c = Math.floor(Math.random() * size);
-    const key = `${r},${c}`;
-    if (!mineSet.has(key)) {
-      penaltySet.add(key);
-    }
+  document.body.classList.toggle(
+    "projector",
+    document.getElementById("projector").checked
+  );
+
+  mineSet = new Set();
+  punishSet = new Set();
+  used = new Set();
+  turnIndex = 0;
+
+  while (mineSet.size < mineCount) mineSet.add(randPos());
+  while (punishSet.size < punishCount) {
+    const p = randPos();
+    if (!mineSet.has(p)) punishSet.add(p);
   }
 
   document.getElementById("setup").classList.add("hidden");
   document.getElementById("game").classList.remove("hidden");
-  document.getElementById("restartPanel").classList.add("hidden");
 
-  buildBoard();
+  drawGrid();
+  updateTurn();
 }
 
-function buildBoard() {
-  const board = document.getElementById("board");
-  board.innerHTML = "";
-  board.style.gridTemplateColumns = `repeat(${size}, 50px)`;
+function drawGrid() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+
+  // 🔑 動態計算格子尺寸（解決裁切）
+  const maxWidth = window.innerWidth * 0.95;
+  const maxHeight = window.innerHeight * 0.6;
+  const cellSize = Math.floor(
+    Math.min(maxWidth / size, maxHeight / size)
+  );
 
   for (let i = 0; i < size * size; i++) {
     const btn = document.createElement("button");
     btn.className = "cell";
+    btn.style.width = btn.style.height = cellSize + "px";
+    btn.style.fontSize = Math.floor(cellSize * 0.3) + "px";
     btn.textContent = i + 1;
     btn.onclick = () => pick(i);
-    board.appendChild(btn);
+    grid.appendChild(btn);
   }
 }
 
@@ -143,44 +191,54 @@ function pick(i) {
   const c = i % size;
   const key = `${r},${c}`;
   const btn = document.getElementsByClassName("cell")[i];
+  const name = players[turnIndex];
 
-  // 踩到地雷
   if (mineSet.has(key)) {
     btn.classList.add("red");
-    btn.disabled = true;
-    alert("🎉 你踩到地雷，獲勝！");
-    document.getElementById("restartPanel").classList.remove("hidden");
+    showMessage(`🎉 恭喜 ${name} 踩到地雷！`);
+    nextTurn();
     return;
   }
 
-  // 踩到處罰格
-  if (penaltySet.has(key)) {
+  if (punishSet.has(key)) {
     btn.classList.add("orange");
-    btn.disabled = true;
-    alert("⚠️ 你踩到處罰格！");
-    document.getElementById("restartPanel").classList.remove("hidden");
+    showMessage(`😈 ${name} 踩到處罰格！`);
+    nextTurn();
     return;
   }
 
-  // 安全格顏色判斷
   const adj = [
-    `${r-1},${c}`, `${r+1},${c}`,
-    `${r},${c-1}`, `${r},${c+1}`
+    `${r-1},${c}`,`${r+1},${c}`,`${r},${c-1}`,`${r},${c+1}`
   ];
-
-  if (adj.some(a => mineSet.has(a))) {
-    btn.classList.add("blue");
-  } else {
-    btn.classList.add("green");
-  }
-
-  btn.disabled = true;
+  btn.classList.add(adj.some(a => mineSet.has(a)) ? "blue" : "green");
+  nextTurn();
 }
 
-// 回到設定畫面
+function nextTurn() {
+  turnIndex = (turnIndex + 1) % players.length;
+  updateTurn();
+}
+
+function updateTurn() {
+  document.getElementById("turn").textContent =
+    `👉 輪到：${players[turnIndex]}`;
+}
+
+function showMessage(text) {
+  const m = document.getElementById("message");
+  m.textContent = text;
+  m.classList.remove("hidden");
+  setTimeout(() => m.classList.add("hidden"), 2500);
+}
+
 function backToSetup() {
   document.getElementById("game").classList.add("hidden");
   document.getElementById("setup").classList.remove("hidden");
+  document.body.classList.remove("projector");
+}
+
+function randPos() {
+  return `${Math.floor(Math.random()*size)},${Math.floor(Math.random()*size)}`;
 }
 </script>
 
