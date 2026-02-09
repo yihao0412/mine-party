@@ -129,6 +129,14 @@ function addPlayer() {
 }
 
 function startGame() {
+  // 🔒 主持人密碼檢查
+  const password = "1122"; // 可改成你想要的密碼
+  const input = prompt("請輸入主持人密碼才能開始遊戲：");
+  if (input !== password) {
+    alert("密碼錯誤，無法開始遊戲！");
+    return;
+  }
+
   size = +document.getElementById("size").value;
   const mineCount = +document.getElementById("mineCount").value;
   const punishCount = +document.getElementById("punishCount").value;
@@ -169,7 +177,7 @@ function drawGrid() {
   grid.innerHTML = "";
   grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
 
-  // 🔑 動態計算格子尺寸（解決裁切）
+  // 動態計算格子尺寸
   const maxWidth = window.innerWidth * 0.95;
   const maxHeight = window.innerHeight * 0.6;
   const cellSize = Math.floor(
@@ -180,10 +188,7 @@ function drawGrid() {
     const btn = document.createElement("button");
     btn.className = "cell";
     btn.style.width = btn.style.height = cellSize + "px";
-
-    // 🔹 自動字體大小，跟格子大小比例 45%
     btn.style.fontSize = Math.floor(cellSize * 0.45) + "px";
-
     btn.textContent = i + 1;
     btn.onclick = () => pick(i);
     grid.appendChild(btn);
