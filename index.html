@@ -1,246 +1,163 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+<!DOCTYPE html><html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>踩地雷派對遊戲</title>
-
+<meta charset="UTF-8" />
+<title>踩地雷派對遊戲｜最終整合版</title>
 <style>
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  padding: 10px;
-  margin: 0;
-}
+/* =========================
+   全域與自動縮放設定
+   ========================= */
+:root {
+  --cell-size: min(6.5vmin, 80px); /* 支援到 15×15 */
+  --cell-gap: 0.45vmin;
+}body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-align: center; }
 
-.hidden { display: none; }
+h1, h2 { margin: 8px 0; }
 
-.grid {
-  display: grid;
-  gap: 6px;
-  justify-content: center;
-  margin: 15px auto;
-  max-width: 100vw;
-}
+button { padding: 8px 16px; font-size: 16px; margin: 6px; cursor: pointer; }
 
-.cell {
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  cursor: pointer;
-}
+input { padding: 6px; font-size: 16px; width: 80px; text-align: center; }
 
-.red    { background: #e74c3c; }
-.blue   { background: #3498db; }
-.green  { background: #2ecc71; }
-.orange { background: #f39c12; }
+/* ========================= 設定畫面 ========================= */ #setup { padding: 16px; }
 
-/* 投影模式文字 */
-body.projector #turn {
-  font-size: 36px;
-  font-weight: bold;
-  margin: 20px 0;
-}
+.rule { margin-top: 10px; text-align: left; display: inline-block; }
 
-/* 中央訊息 */
-#message {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0,0,0,0.75);
-  color: white;
-  padding: 30px 40px;
-  border-radius: 16px;
-  font-size: 32px;
-  z-index: 999;
-  pointer-events: none;
-}
-</style>
+/* ========================= 遊戲畫面 ========================= */ #game { display: none; padding: 10px; }
+
+#status { font-size: 20px; margin-bottom: 10px; }
+
+.grid { display: grid; gap: var(--cell-gap); justify-content: center; margin: auto; }
+
+.grid > div { width: var(--cell-size); height: var(--cell-size); font-size: calc(var(--cell-size) * 0.55); font-weight: bold;
+
+display: flex; justify-content: center; align-items: center;
+
+border-radius: 10px; background: #7dd97d; /* 安全綠 */ cursor: pointer; user-select: none; }
+
+/* 顏色狀態 */ .mine { background: #e74c3c !important; color: #fff; } .hint { background: #3498db !important; color: #fff; } .penalty { background: #f39c12 !important; color: #fff; } .disabled { cursor: default; }
+
+/* 防止版面被切 */ #board-container { max-width: 96vw; max-height: 96vh; overflow: auto; }
+
+@media (min-width: 1200px) { :root { --cell-size: min(7.5vmin, 100px); } body { font-size: 22px; } } </style>
+
 </head>
+<body><h1>🎲 踩地雷派對遊戲</h1><div id="setup">
+  <h2>遊戲設定</h2>
+  <div>
+    棋盤大小：<input id="size" type="number" value="7" min="5" max="15" /> × 
+    <input id="size2" type="number" value="7" min="5" max="15" />
+  </div>
+  <div>
+    地雷數量：<input id="mineCount" type="number" value="1" min="1" />
+    處罰格數量：<input id="penaltyCount" type="number" value="1" min="0" />
+  </div>  <div style="margin-top:10px;">
+    參加者（最多 30 位，逗號分隔）<br />
+    <input id="players" type="text" style="width:300px" placeholder="小明,小美,阿宏" />
+  </div><button onclick="startGame()">開始遊戲</button>
 
-<body>
-
-<!-- ===== 中央訊息 ===== -->
-<div id="message" class="hidden"></div>
-
-<!-- ===== 設定頁 ===== -->
-<div id="setup">
-  <h2>🎮 遊戲設定</h2>
-
-  <label>棋盤大小：
-    <input type="number" id="size" value="7" min="5" max="15">
-  </label><br><br>
-
-  <label>地雷數量：
-    <input type="number" id="mineCount" value="1" min="1">
-  </label><br><br>
-
-  <label>處罰格數量：
-    <input type="number" id="punishCount" value="3" min="0">
-  </label><br><br>
-
-  <label>
-    <input type="checkbox" id="projector">
-    投影模式（大螢幕）
-  </label>
-
-  <hr>
-
-  <h3>👥 參加者（最多 30 位）</h3>
-  <div id="players"></div>
-  <button onclick="addPlayer()">＋ 新增參加者</button>
-
-  <hr>
-
-  <h3>🎨 顏色說明</h3>
-  🔴 踩到雷（獲勝）<br>
-  🔵 雷的上下左右<br>
-  🟢 安全格<br>
-  🟠 處罰格
-
-  <br><br>
-  <button onclick="startGame()">▶ 開始遊戲</button>
-</div>
-
-<!-- ===== 遊戲頁 ===== -->
-<div id="game" class="hidden">
-  <div id="turn"></div>
-  <div id="grid" class="grid"></div>
-  <button onclick="backToSetup()">⬅ 回到設定</button>
-</div>
-
-<script>
-let size, mineSet, punishSet, used;
+  <div class="rule">
+    <p>🔴 踩到雷：直接獲勝</p>
+    <p>🔵 雷的上下左右</p>
+    <p>🟢 安全</p>
+    <p style="color:#f39c12">🟧 處罰格</p>
+  </div>
+</div><div id="game">
+  <div id="status"></div>
+  <div id="board-container">
+    <div id="grid" class="grid"></div>
+  </div>
+  <br />
+  <button onclick="resetGame()">重新回到設定</button>
+</div><script>
+let mines = new Set();
+let penalties = new Set();
 let players = [];
-let turnIndex = 0;
-
-// 預設 2 人
-addPlayer(); addPlayer();
-
-function addPlayer() {
-  if (document.querySelectorAll("#players input").length >= 30) return;
-  const input = document.createElement("input");
-  input.placeholder = "參加者名稱";
-  document.getElementById("players").appendChild(input);
-}
+let currentPlayer = 0;
+let size;
 
 function startGame() {
-  size = +document.getElementById("size").value;
-  const mineCount = +document.getElementById("mineCount").value;
-  const punishCount = +document.getElementById("punishCount").value;
+  size = parseInt(sizeInput().value);
+  const mineCount = parseInt(document.getElementById('mineCount').value);
+  const penaltyCount = parseInt(document.getElementById('penaltyCount').value);
 
-  players = [...document.querySelectorAll("#players input")]
-    .map(i => i.value.trim()).filter(v => v);
+  players = document.getElementById('players').value.split(',').map(p => p.trim()).filter(p => p).slice(0,30);
+  if (players.length === 0) players = ['玩家1'];
 
-  if (players.length === 0) {
-    alert("至少要一位參加者");
-    return;
+  currentPlayer = 0;
+  mines.clear();
+  penalties.clear();
+
+  const total = size * size;
+
+  while (mines.size < mineCount) {
+    mines.add(Math.floor(Math.random() * total));
+  }
+  while (penalties.size < penaltyCount) {
+    const r = Math.floor(Math.random() * total);
+    if (!mines.has(r)) penalties.add(r);
   }
 
-  document.body.classList.toggle(
-    "projector",
-    document.getElementById("projector").checked
-  );
-
-  mineSet = new Set();
-  punishSet = new Set();
-  used = new Set();
-  turnIndex = 0;
-
-  while (mineSet.size < mineCount) mineSet.add(randPos());
-  while (punishSet.size < punishCount) {
-    const p = randPos();
-    if (!mineSet.has(p)) punishSet.add(p);
-  }
-
-  document.getElementById("setup").classList.add("hidden");
-  document.getElementById("game").classList.remove("hidden");
-
-  drawGrid();
-  updateTurn();
+  buildGrid(size);
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  updateStatus();
 }
 
-function drawGrid() {
-  const grid = document.getElementById("grid");
-  grid.innerHTML = "";
-  grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+function buildGrid(n) {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
 
-  // 🔑 動態計算格子尺寸（解決裁切）
-  const maxWidth = window.innerWidth * 0.95;
-  const maxHeight = window.innerHeight * 0.6;
-  const cellSize = Math.floor(
-    Math.min(maxWidth / size, maxHeight / size)
-  );
-
-  for (let i = 0; i < size * size; i++) {
-    const btn = document.createElement("button");
-    btn.className = "cell";
-    btn.style.width = btn.style.height = cellSize + "px";
-    btn.style.fontSize = Math.floor(cellSize * 0.3) + "px";
-    btn.textContent = i + 1;
-    btn.onclick = () => pick(i);
-    grid.appendChild(btn);
+  for (let i = 0; i < n*n; i++) {
+    const d = document.createElement('div');
+    d.textContent = i + 1;
+    d.onclick = () => pick(i, d);
+    grid.appendChild(d);
   }
 }
 
-function pick(i) {
-  if (used.has(i)) return;
-  used.add(i);
+function pick(index, cell) {
+  if (cell.classList.contains('disabled')) return;
+  cell.classList.add('disabled');
 
+  if (mines.has(index)) {
+    cell.classList.add('mine');
+    alert(`🎉 恭喜 ${players[currentPlayer]} 踩到地雷！`);
+  } else if (penalties.has(index)) {
+    cell.classList.add('penalty');
+    alert(`⚠️ ${players[currentPlayer]} 抽到處罰格！`);
+  } else {
+    const neighbors = getNeighbors(index);
+    if ([...neighbors].some(n => mines.has(n))) {
+      cell.classList.add('hint');
+    }
+  }
+
+  currentPlayer = (currentPlayer + 1) % players.length;
+  updateStatus();
+}
+
+function getNeighbors(i) {
   const r = Math.floor(i / size);
   const c = i % size;
-  const key = `${r},${c}`;
-  const btn = document.getElementsByClassName("cell")[i];
-  const name = players[turnIndex];
-
-  if (mineSet.has(key)) {
-    btn.classList.add("red");
-    showMessage(`🎉 恭喜 ${name} 踩到地雷！`);
-    nextTurn();
-    return;
-  }
-
-  if (punishSet.has(key)) {
-    btn.classList.add("orange");
-    showMessage(`😈 ${name} 踩到處罰格！`);
-    nextTurn();
-    return;
-  }
-
-  const adj = [
-    `${r-1},${c}`,`${r+1},${c}`,`${r},${c-1}`,`${r},${c+1}`
-  ];
-  btn.classList.add(adj.some(a => mineSet.has(a)) ? "blue" : "green");
-  nextTurn();
+  const res = [];
+  if (r > 0) res.push(i - size);
+  if (r < size-1) res.push(i + size);
+  if (c > 0) res.push(i - 1);
+  if (c < size-1) res.push(i + 1);
+  return res;
 }
 
-function nextTurn() {
-  turnIndex = (turnIndex + 1) % players.length;
-  updateTurn();
+function updateStatus() {
+  document.getElementById('status').textContent = `輪到：${players[currentPlayer]}`;
 }
 
-function updateTurn() {
-  document.getElementById("turn").textContent =
-    `👉 輪到：${players[turnIndex]}`;
+function resetGame() {
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('setup').style.display = 'block';
 }
 
-function showMessage(text) {
-  const m = document.getElementById("message");
-  m.textContent = text;
-  m.classList.remove("hidden");
-  setTimeout(() => m.classList.add("hidden"), 2500);
+function sizeInput() {
+  return document.getElementById('size');
 }
-
-function backToSetup() {
-  document.getElementById("game").classList.add("hidden");
-  document.getElementById("setup").classList.remove("hidden");
-  document.body.classList.remove("projector");
-}
-
-function randPos() {
-  return `${Math.floor(Math.random()*size)},${Math.floor(Math.random()*size)}`;
-}
-</script>
-
-</body>
+</script></body>
 </html>
